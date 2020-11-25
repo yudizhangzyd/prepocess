@@ -343,10 +343,11 @@ void output_selected_reads(const char *f, sam **sds, merge_hash *mh) {
 	for (merge_hash *me = mh; me != NULL; me = me->hh.next) {
 		sam_entry *se;
 		if (me->nfiles != N_FILES) {
-			if (me->indices[0])
-				se = &sds[0]->se[me->indices[0][0]];
-			else
-				se = &sds[1]->se[me->indices[1][0]];
+//			if (me->indices[0])
+//				se = &sds[0]->se[me->indices[0][0]];
+//			else
+//				se = &sds[1]->se[me->indices[1][0]];
+            continue;
 		} else {
 			se = &sds[0]->se[me->indices[0][0]];
 		}
@@ -421,7 +422,7 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 #ifdef STANDALONE
 	printf("old alignment index, start from %zu\n", se->pos);
 #endif
-	// adjust and trim the alignment (need to consider genome reverse c and read RC)
+	// adjust and trim the alignment (need to consider genome RC and read RC)
 	int len = 0;
 	se->rd_map = NULL;
 	unsigned int *remain = NULL;
@@ -453,12 +454,11 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 			se->rd_map = malloc(new_len * sizeof(*se->rd_map));
 			int flag = 0;
 			for (unsigned int i = 0; i < new_len; ++i) {
-				
 				for (unsigned int j = 0; j < gaps; ++j) {
 					if (i == remain[j]) {
 						flag = 1;
 						consumed++;
-						se->rd_map[i] = -1;
+						se->rd_map[i] = -1; // maybe change this to what the read looks like if there was insertion relative to original alignment
 						break;
 					}
 				}
@@ -686,9 +686,9 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 	
 	for (size_t j = 0; j < new_len; ++j) {
 		// to get the quality score: get_qual(se->qual, se->rd_map[j]);
-		if (se->rd_map[j] == -1)
-			se->uni_aln[j] = 4; // here use 4 to represent gaps
-		else {
+        if (se->rd_map[j] == -1) { // check if this pos has a nuc, but what if aligned genome A is AA--CT, read is AAGTGCT, 3I, which one should be put?
+            se->uni_aln[j] = 4; // here use 4 to represent gaps
+        } else {
 			if (strand)
 				se->uni_aln[j] = to_compliment[read[se->rd_map[j]]];
 			else
@@ -698,7 +698,7 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 	
 	se->aln_len = new_len;
 #ifdef STANDALONE
-//	PRINT_VECTOR(se->rd_map, length);
+	PRINT_VECTOR(se->rd_map, new_len);
 	printf("alignment of read to universal, start from %zu, length %zu\n", se->new_pos, se->aln_len);
 	PRINT_VECTOR(se->uni_aln, se->aln_len);
 	printf("alignment of ref\n");
@@ -708,10 +708,10 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 #endif
 	// compute the alignment probability, if, ther is a gap in the read alignment but not in uni genome, then add a penalty
 	se->ll_aln = 0;
-	unsigned int gap_in = 0;
+	se->gap_in = 0;
 	for (size_t j = 0; j < new_len; ++j) {
 		if (se->uni_aln[j] == 4) {
-			gap_in++;
+			se->gap_in++;
 			continue;
 		}
 		double llt = sub_prob_given_q_with_encoding(ref[se->new_pos + j], se->uni_aln[j],
@@ -719,11 +719,11 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 							    get_qual(se->qual, se->rd_map[j]), 1, (void *) se);
 		se->ll_aln += llt;
 	}
-	if (!gap_in) {
-		double penalty = gap_in * log(1e-5 * new_len) - 1e-5 * new_len;
-		for (unsigned int i = 0; i < gap_in; ++i)
+	if (!se->gap_in) {
+		double penalty = se->gap_in * log(1e-5 * new_len) - 1e-5 * new_len;
+		for (unsigned int i = 0; i < se->gap_in; ++i)
 			penalty -= log(i+1);
-//		printf("penalty %lf\n", penalty);
+		printf("penalty %lf\n", penalty);
 		se->ll_aln += penalty;
 	}
 #ifdef STANDALONE

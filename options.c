@@ -33,6 +33,7 @@ int default_options(options *opt)
 		opt->sbam_files[i] = NULL;
 		opt->fsa_files[i] = NULL;
 		opt->ref_names[i] = NULL;
+        opt->splited_fq[i] = NULL;
 	}
 	opt->uni_genome = NULL;
 	opt->sam_file = NULL;
@@ -58,25 +59,20 @@ int parse_options(options *opt, int argc, const char **argv)
 				
 				/* cases within switch not indented */
 			case 'b':
-				if (!strncmp(&argv[i][j], "bam", 3)) {
-					if (i + N_FILES >= argc) {
-						err = mmessage(ERROR_MSG,
-							       INVALID_CMD_ARGUMENT, "Too few "
-							       "arguments to --bam_files "
-							       "command-line option.\n");
-						goto CMDLINE_ERROR;
-					}
-					opt->use_bam = 1;
-					mmessage(INFO_MSG, NO_ERROR, "BAM files:");
-					for (j = 0; j < N_FILES; ++j) {
-						opt->sbam_files[j] = argv[++i];
-						fprintf(stderr, " %s",
-							opt->sbam_files[j]);
-					}
-					fprintf(stderr, "\n");
-				} else {
-					goto CMDLINE_ERROR;
-				}
+                if (i + N_FILES >= argc) {
+                    err = mmessage(ERROR_MSG,
+                               INVALID_CMD_ARGUMENT, "Too few "
+                               "arguments to --splitted_files "
+                               "command-line option.\n");
+                    goto CMDLINE_ERROR;
+                }
+                mmessage(INFO_MSG, NO_ERROR, "Splitted fastq files:");
+                for (j = 0; j < N_FILES; ++j) {
+                    opt->splited_fq[j] = argv[++i];
+                    fprintf(stderr, " %s",
+                        opt->splited_fq[j]);
+                }
+                fprintf(stderr, "\n");
 				break;
 			case 'f':
 				if (i + N_FILES >= argc) {
@@ -224,6 +220,7 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj) {
 	fprintf(fp, "\nOPTIONS\n");
 	fprintf(fp, "\t--o <outfile> \n\t\tOut file \n");
     fprintf(fp, "\t--q <selected> \n\t\tSelected reads(fastq) file \n");
+    fprintf(fp, "\t--b <fq1> <fq2>\n\t\tSelected reads in splitted fastq file\n");
 	fprintf(fp, "\t--n <uni_geno> \n\t\tUni_geno file \n");
 	fprintf(fp, "\t--sam_files <fsam1> <fsam2>\n\t\tSpecify sam files "
 		"containing alignments (Default: none)\n");

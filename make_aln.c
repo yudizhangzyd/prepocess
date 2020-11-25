@@ -44,11 +44,19 @@ int make_alignment(options opt) {
 	ref_info *rf_info = NULL;
 	fastq_data *fdr = NULL;
 	
-	if ((err = read_fastq(opt.uni_genome, &fdr, &fop)))
-		exit(mmessage(ERROR_MSG, INTERNAL_ERROR, "Reading '%s' "
-			      "failed with error '%s' (%d).\n",
-			      opt.uni_genome, fastq_error_message(err),
-			      err));
+    if ((err = read_fastq(opt.uni_genome, &fdr, &fop))) {
+#ifdef STANDALONE
+        exit(mmessage(ERROR_MSG, INTERNAL_ERROR, "Reading '%s' "
+        "failed with error '%s' (%d).\n",
+        opt.uni_genome, fastq_error_message(err),
+        err));
+#else
+        error("Reading '%s' failed with error '%s' (%d).\n",
+        opt.uni_genome, fastq_error_message(err),
+        err);
+#endif
+    }
+		
 	// get the selected reference (match the name)
 	unsigned int A_id = 0, B_id = 0;
 	unsigned int rptr = 0, rptr_b = 0;
@@ -103,8 +111,14 @@ int make_alignment(options opt) {
 	FILE *uni_fa = NULL;
 	if (opt.uni_geno_file) {
 		uni_fa = fopen(opt.uni_geno_file, "w");
-		if (!uni_fa)
-			exit(mmessage(ERROR_MSG, FILE_OPEN_ERROR, opt.uni_geno_file));
+        if (!uni_fa) {
+#ifdef STANDALONE
+            exit(mmessage(ERROR_MSG, FILE_OPEN_ERROR, opt.uni_geno_file));
+#else
+            error("%s open error", opt.uni_geno_file);
+#endif
+        }
+			
 		// output the universal alignment
 		fprintf(uni_fa, ">uni_genome\n");
 		for (j = 0; j < fdr->n_lengths[A_id]; ++j) {
@@ -135,9 +149,9 @@ int make_alignment(options opt) {
 			id_B[j] = -1;
 		}
 	}
-//		PRINT_VECTOR(id_A, fdr->n_lengths[A_id]);
-//		printf("B\n");
-//		PRINT_VECTOR(id_B, fdr->n_lengths[A_id]);
+		PRINT_VECTOR(id_A, fdr->n_lengths[A_id]);
+		printf("B\n");
+		PRINT_VECTOR(id_B, fdr->n_lengths[A_id]);
 	/* store information to the reference targeted sam file */
 	make_targets_info(opt_rf, &rf_info);
 	
@@ -192,10 +206,17 @@ int make_alignment(options opt) {
 			rchar += strlen(se->ref_name) + 1;
 		}
 //		printf("\n");
-		if (!found)
-			exit(mmessage(ERROR_MSG, INVALID_USER_INPUT, "no "
-				      "reference '%s' in fasta file '%s'",
-				      opt.ref_names[j], opt.sbam_files[j]));
+        if (!found) {
+#ifdef STANDALONE
+            exit(mmessage(ERROR_MSG, INVALID_USER_INPUT, "no "
+            "reference '%s' in fasta file '%s'",
+            opt.ref_names[j], opt.sbam_files[j]));
+#else
+            error("no reference '%s' in fasta file '%s'",
+            opt.ref_names[j], opt.sbam_files[j]);
+#endif
+        }
+			
 		
 		/* hash sam file to reference (use n_se since some references are repeated in the targted sam file) */
 		hash_sam(sds[j], &by_name[j], HASH_REFERENCE, my_refs[j], rf_info->ref_sam->n_se,
@@ -293,35 +314,43 @@ int make_alignment(options opt) {
 		if (!fp)
 			exit(mmessage(ERROR_MSG, FILE_OPEN_ERROR, opt.out_file));
 	}
+    FILE *splitted[2] = {NULL, NULL};
+    if (opt.splited_fq[0])
+        for (i = 0; i < N_FILES; ++i) {
+            splitted[i] = fopen(opt.splited_fq[i], "w");
+            if (!splitted[i])
+                exit(mmessage(ERROR_MSG, FILE_OPEN_ERROR, opt.splited_fq[i]));
+        }
+    
 	unsigned int n_read = 1;
 	for (merge_hash *me = mh; me != NULL; me = me->hh.next) {
 		sam_entry *se;
 		
 		// only mapped to one reference, adjust the alignment to universal
 		if (me->nfiles != N_FILES) {
-			me->exclude = 1;
-			if (me->indices[0]) {
-				se = &sds[0]->se[me->indices[0][0]]; // indices[0] represents A
-				strand_genome = re->strand_A;
-				id_uni = id_A;
-				rf_id = rptr;
-				//				uni_len = fdr->n_lengths[A_id] - gap_a;
-				real_id = real_id_A;
-			} else {
-				se = &sds[1]->se[me->indices[1][0]];
-				strand_genome = re->strand_B;
-				id_uni = id_B;
-				rf_id = rptr_b;
-				//				uni_len = fdr->n_lengths[A_id] - gap_b;
-				real_id = real_id_B;
-			}
-#ifdef STANDALONE
-			printf("%s is ajusted\ndata\n", se->name_s);
-#endif
-			adjust_alignment(se, &fdr->reads[rf_id], strand_genome, id_uni, fdr->n_lengths[A_id], real_id);
-			// output the final alignment
-			output_data(fp, se, n_read);
-			n_read++;
+//			me->exclude = 1;
+//			if (me->indices[0]) {
+//				se = &sds[0]->se[me->indices[0][0]]; // indices[0] represents A
+//				strand_genome = re->strand_A;
+//				id_uni = id_A;
+//				rf_id = rptr;
+//				//				uni_len = fdr->n_lengths[A_id] - gap_a;
+//				real_id = real_id_A;
+//			} else {
+//				se = &sds[1]->se[me->indices[1][0]];
+//				strand_genome = re->strand_B;
+//				id_uni = id_B;
+//				rf_id = rptr_b;
+//				//				uni_len = fdr->n_lengths[A_id] - gap_b;
+//				real_id = real_id_B;
+//			}
+//#ifdef STANDALONE
+//			printf("%s is ajusted\ndata\n", se->name_s);
+//#endif
+//			adjust_alignment(se, &fdr->reads[rf_id], strand_genome, id_uni, fdr->n_lengths[A_id], real_id);
+//			// output the final alignment
+//			output_data(fp, se, n_read);
+//			n_read++;
 			continue;
 		}
 		
@@ -330,11 +359,19 @@ int make_alignment(options opt) {
 		unsigned int max_id = 0;
 		for (j = 0; j < N_FILES; ++j) {
 			//			printf("genome %d\n", j);
-			if (me->count[j] > 1)
-				exit(mmessage(ERROR_MSG, INTERNAL_ERROR,
-					      "Read %u aligns twice in genome %s.\n",
-					      j, sds[j]->se[me->indices[j][0]].name_s));
-			
+
+            if (me->count[j] > 1) { // if reads align to multiple places, skip this read
+#ifdef STANDALONE
+                mmessage(WARNING_MSG, NO_ERROR,
+                                      "Read %u aligns twice in genome %s.\n",
+                                      sds[j]->se[me->indices[j][0]].name_s, j);
+#else
+                warning("Read %u aligns twice in genome %s.\n",
+                                      sds[j]->se[me->indices[j][0]].name_s, j);
+#endif
+                break;
+            }
+            
 			se = &sds[j]->se[me->indices[j][0]];
 			if (j == 0) {
 				strand_genome = re->strand_A;
@@ -362,14 +399,41 @@ int make_alignment(options opt) {
 		printf("choose %d\n", max_id);
 #endif
 		se = &sds[max_id]->se[me->indices[max_id][0]];
+        if(se->gap_in) {
+            int left = 0;
+            if (!max_id)
+                left = 1;
+            sam_entry *se2 = &sds[left]->se[me->indices[left][0]];
+            printf("\nfill gap: %zu %zu\n", se->aln_len, se2->aln_len);
+            for (size_t m = 0; m < se->aln_len; ++m) {
+                if (se->uni_aln[m] == 4) {
+                    se->uni_aln[m] = se2->uni_aln[m];
+                    printf("%d:%d ",  se2->uni_aln[m], se->uni_aln[m]);
+                }
+            }
+            fprintf(stderr, "\n");
+        }
 		// output the needed format
 		output_data(fp, se, n_read);
+        // output the sam file, split A and B
+        if (opt.splited_fq[0]) {
+            fprintf(splitted[max_id], "@%s\n", se->name);
+            fwrite_nuc_segment(splitted[max_id], se->read, XY_ENCODING, 0,
+                       se->read->len);
+            fprintf(splitted[max_id], "\n+\n");
+            fwrite_qual_sequence(splitted[max_id], se->qual);
+            fprintf(splitted[max_id], "\n");
+        }
 		n_read++;
 	}
 #ifdef STANDALONE
 	printf("read: %d\n", n_read);
 #endif
 	fclose(fp);
+    if (opt.splited_fq[0])
+        for (i = 0; i < N_FILES; ++i)
+            fclose(splitted[i]);
+    
 	return err;
 }
 

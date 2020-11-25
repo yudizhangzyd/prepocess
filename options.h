@@ -50,6 +50,7 @@ struct _options {
 	char const * sam_file;		/*<! reference sam file */
 	const char *uni_genome;		/*<! uni_genome */
     const char *selected_fq;        /*<! selected reads in a fastq */
+    const char *splited_fq[N_FILES];        /*<! selected reads in a splited fastq */
 };
 
 typedef struct nuc_state {

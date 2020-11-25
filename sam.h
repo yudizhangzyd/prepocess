@@ -68,6 +68,7 @@ struct _sam_entry {
 	data_t *uni_aln;		/* alignment to the universal genome */
 	size_t aln_len;			/* alignment length */
 	size_t new_pos;			/* new alignment position */
+    unsigned int gap_in;       /* indicate if the gaps in uni genome is in the alignment */
 };
 
 struct _sam {
