@@ -399,20 +399,20 @@ int make_alignment(options opt) {
 		printf("choose %d\n", max_id);
 #endif
 		se = &sds[max_id]->se[me->indices[max_id][0]];
-        if(se->gap_in) {
-            int left = 0;
-            if (!max_id)
-                left = 1;
-            sam_entry *se2 = &sds[left]->se[me->indices[left][0]];
-            printf("\nfill gap: %zu %zu\n", se->aln_len, se2->aln_len);
-            for (size_t m = 0; m < se->aln_len; ++m) {
-                if (se->uni_aln[m] == 4) {
-                    se->uni_aln[m] = se2->uni_aln[m];
-                    printf("%d:%d ",  se2->uni_aln[m], se->uni_aln[m]);
-                }
-            }
-            fprintf(stderr, "\n");
-        }
+//        if(se->gap_in) { // if there is gap on one alignment but not in another, then make up this info
+//            int left = 0;
+//            if (!max_id)
+//                left = 1;
+//            sam_entry *se2 = &sds[left]->se[me->indices[left][0]];
+//            printf("\nfill gap: %zu %zu\n", se->aln_len, se2->aln_len);
+//            for (size_t m = 0; m < se->aln_len; ++m) {
+//                if (se->uni_aln[m] == 4) {
+//                    se->uni_aln[m] = se2->uni_aln[m];
+//                    printf("%d:%d ",  se2->uni_aln[m], se->uni_aln[m]);
+//                }
+//            }
+//            fprintf(stderr, "\n");
+//        }
 		// output the needed format
 		output_data(fp, se, n_read);
         // output the sam file, split A and B
