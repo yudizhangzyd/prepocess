@@ -30,6 +30,7 @@ int main(int argc, const char *argv[])
 }
 #endif
 
+// if the alignment has hard/soft clips, then the current code my not work, need to discrad the reads that align to the hard/soft clips regions
 int make_alignment(options opt) {
 	int err = NO_ERROR;
 	sam *sds[N_FILES] = {NULL, NULL};
@@ -89,7 +90,7 @@ int make_alignment(options opt) {
 		}
 		rptr += fdr->n_lengths[j];
 	}
-	
+    free(A_name);
 	// make universal genome, gap from A as I(4), gap from B as J(5), mismatch mas M (6)
 	data_t to_xy[NUM_IUPAC_SYMBOLS] = {
 		0, XY_A, XY_C, 0, XY_G, 0, 0, 0, XY_T, 0, 0, 0, 0, 0, 0, 0
@@ -149,9 +150,10 @@ int make_alignment(options opt) {
 			id_B[j] = -1;
 		}
 	}
-		PRINT_VECTOR(id_A, fdr->n_lengths[A_id]);
-		printf("B\n");
-		PRINT_VECTOR(id_B, fdr->n_lengths[A_id]);
+    free(uni_genome);
+    PRINT_VECTOR(id_A, fdr->n_lengths[A_id]);
+    printf("B\n");
+    PRINT_VECTOR(id_B, fdr->n_lengths[A_id]);
 	/* store information to the reference targeted sam file */
 	make_targets_info(opt_rf, &rf_info);
 	
@@ -284,16 +286,16 @@ int make_alignment(options opt) {
 				real_id_B[j] = real_id_B[0] + id_B[j];
 		}
 	}
-#ifdef STANDALONE
-	for (j = 1; j < fdr->n_lengths[A_id]; ++j)
-		printf("%ld: %c\t\t\t", real_id_A[j], iupac_to_char[fdr->reads[rptr + j]]);
-	for (j = 1; j < fdr->n_lengths[A_id]; ++j)
-		printf("%ld: %c\t", real_id_B[j], iupac_to_char[fdr->reads[rptr_b + j]]);
-	printf("\nreal start-end in genome A %ld-%ld B %ld-%ld\n", real_id_A[0], real_id_A[fdr->n_lengths[A_id] - 1], real_id_B[0], real_id_B[fdr->n_lengths[A_id] - 1]);
-	PRINT_VECTOR(real_id_A, fdr->n_lengths[A_id]);
-	printf("B\n");
-	PRINT_VECTOR(real_id_B, fdr->n_lengths[A_id]);
-#endif
+//#ifdef STANDALONE
+//	for (j = 1; j < fdr->n_lengths[A_id]; ++j)
+//		printf("%ld: %c\t\t\t", real_id_A[j], iupac_to_char[fdr->reads[rptr + j]]);
+//	for (j = 1; j < fdr->n_lengths[A_id]; ++j)
+//		printf("%ld: %c\t", real_id_B[j], iupac_to_char[fdr->reads[rptr_b + j]]);
+//	printf("\nreal start-end in genome A %ld-%ld B %ld-%ld\n", real_id_A[0], real_id_A[fdr->n_lengths[A_id] - 1], real_id_B[0], real_id_B[fdr->n_lengths[A_id] - 1]);
+//	PRINT_VECTOR(real_id_A, fdr->n_lengths[A_id]);
+//	printf("B\n");
+//	PRINT_VECTOR(real_id_B, fdr->n_lengths[A_id]);
+//#endif
 	unsigned int strand_genome;
 	int *id_uni = NULL;
 	//	size_t uni_len;
@@ -387,13 +389,19 @@ int make_alignment(options opt) {
 				real_id = real_id_B;
 			}
 #ifdef STANDALONE
-			printf("%s is ajusted\n", se->name_s);
+			printf("%s is ajusting\n", se->name_s);
 #endif
 			adjust_alignment(se, &fdr->reads[rf_id], strand_genome, id_uni, fdr->n_lengths[A_id], real_id);
+            // if the same, then ramdom sample
 			if (max_ll < se->ll_aln) {
 				max_ll = se->ll_aln;
 				max_id = j;
 			}
+            else if (max_ll == se->ll_aln) {
+                double which_ref = rand() / (RAND_MAX + 1.);
+                if (which_ref <= 0.5)
+                    max_id = j;
+            }
 		}
 #ifdef STANDALONE
 		printf("choose %d\n", max_id);
@@ -433,7 +441,8 @@ int make_alignment(options opt) {
     if (opt.splited_fq[0])
         for (i = 0; i < N_FILES; ++i)
             fclose(splitted[i]);
-    
+    free(real_id_A);
+    free(real_id_B);
 	return err;
 }
 

@@ -190,15 +190,18 @@ int pickreads(ref_info *ref_info, options_rf *opt, sam **sds) {
 			sam_entry *se = &sds[j]->se[m];
 			se->which_ref = -1;
 			se->ref_name = NULL;
+            
 			if ((se->flag & (1 << 2)))
 				continue;
 			cigar *cig = se->cig;
+            
 			for (i = 0; i < ref_info->ref_sam->n_se; ++i) {
 				ref_entry *re = &ref_info->info[i];
 				sam_entry *rse = &ref_info->ref_sam->se[i];
+                
 				if (rse->flag >> 11 & 1) //skip secondary
 					continue;
-				rse->cig->length_rf;
+				
 				char *ref_names[N_FILES] = {re->name_A, re->name_B};
 				size_t start_pos[N_FILES] = {re->start_A, re->start_B}; // 0 based
 				size_t end_pos[N_FILES] = {re->end_A, re->end_B};// 1 based
@@ -213,6 +216,7 @@ int pickreads(ref_info *ref_info, options_rf *opt, sam **sds) {
 						    (rf_index_s < start_pos[j] && rf_index_e >= start_pos[j] + 1) ||
 						    (rf_index_s + 1 < end_pos[j] && rf_index_e >= end_pos[j])) {
 							size_t length = strlen(ref_names[j]) + strlen(opt->delim_len) + strlen(opt->delim_ref) + (int)(log10(end_pos[j]) + 1) + 1;
+                            
 							if (start_pos[j] != 0) {
 								length += (int)(log10(start_pos[j]) + 1);
 							} else
@@ -389,7 +393,7 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 		    || se->cig->ashes[i].type == CIGAR_MISMATCH)
 			length += se->cig->ashes[i].len;
 #ifdef STANDALONE
-	printf("reference length comsumed: %lu\n", length);
+	printf("reference length consumed: %lu\n", length);
 #endif
 	// length of reference != length summed by using CIGAR
 	// length of reference = position - 1 (if alignment start with S/H) + M + D
@@ -703,15 +707,20 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 	PRINT_VECTOR(se->uni_aln, se->aln_len);
 	printf("alignment of ref\n");
 	for (size_t j = 0; j < se->aln_len; ++j) {
-		printf("%d\t", iupac_to_xy[ref[se->new_pos + j]]); // se->new_pos is 0 based
+        if(ref[se->new_pos + j] == 0)
+            printf("4\t");
+        else
+            printf("%d\t", iupac_to_xy[ref[se->new_pos + j]]); // se->new_pos is 0 based
 	}
 #endif
 	// compute the alignment probability, if, ther is a gap in the read alignment but not in uni genome, then add a penalty
+    // since here uni_aln is the alignment to the universal alignment, if reference and reads are the same, then both will contain gaps
 	se->ll_aln = 0;
 	se->gap_in = 0;
 	for (size_t j = 0; j < new_len; ++j) {
 		if (se->uni_aln[j] == 4) {
-			se->gap_in++;
+            if(ref[se->new_pos + j] != 0)
+                se->gap_in++;
 			continue;
 		}
 		double llt = sub_prob_given_q_with_encoding(ref[se->new_pos + j], se->uni_aln[j],
@@ -719,15 +728,15 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 							    get_qual(se->qual, se->rd_map[j]), 1, (void *) se);
 		se->ll_aln += llt;
 	}
-	if (!se->gap_in) {
+	if (se->gap_in != 0) {
 		double penalty = se->gap_in * log(1e-5 * new_len) - 1e-5 * new_len;
 		for (unsigned int i = 0; i < se->gap_in; ++i)
 			penalty -= log(i+1);
-		printf("penalty %lf\n", penalty);
+		printf("gaps: %d, penalty %lf\n", se->gap_in, penalty);
 		se->ll_aln += penalty;
 	}
 #ifdef STANDALONE
-	printf("%lf\n", se->ll_aln);
+	printf("llk: %lf\n", se->ll_aln);
 #endif
 	free(remain);
 	free(read);
