@@ -151,9 +151,9 @@ int make_alignment(options opt) {
 		}
 	}
     free(uni_genome);
-    PRINT_VECTOR(id_A, fdr->n_lengths[A_id]);
-    printf("B\n");
-    PRINT_VECTOR(id_B, fdr->n_lengths[A_id]);
+//    PRINT_VECTOR(id_A, fdr->n_lengths[A_id]);
+//    printf("B\n");
+//    PRINT_VECTOR(id_B, fdr->n_lengths[A_id]);
 	/* store information to the reference targeted sam file */
 	make_targets_info(opt_rf, &rf_info);
 	
