@@ -346,6 +346,8 @@ void output_selected_reads(const char *f, sam **sds, merge_hash *mh) {
 		exit(mmessage(ERROR_MSG, FILE_OPEN_ERROR, f));
 	for (merge_hash *me = mh; me != NULL; me = me->hh.next) {
 		sam_entry *se;
+        if (me->exclude == 1)
+            continue;
 		if (me->nfiles != N_FILES) {
 //			if (me->indices[0])
 //				se = &sds[0]->se[me->indices[0][0]];
@@ -377,7 +379,7 @@ void output_selected_reads(const char *f, sam **sds, merge_hash *mh) {
 //U:      ANGTCNT
 //B:    CCACGTC-T
 //read:     GTC-T
-void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_uni, size_t uni_aln_len, long *real_id) {
+int adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_uni, size_t uni_aln_len, long *real_id) {
 	
 	size_t length = 0;
 	int rd_idx = 0;
@@ -437,6 +439,10 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 #ifdef STANDALONE
 		printf("genome forward\n");
 #endif
+        // in case actual aligned reference have soft clips or hard clips but not considered
+        if (se->pos > e_id || se->pos + length - 1 < s_id)
+            return 1;
+        
 		if (se->pos < s_id) { // then rd_map is the read (covers the begining) index when aligned to picked region
 #ifdef STANDALONE
 			printf("align start before the real homo\n");
@@ -550,6 +556,9 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 #ifdef STANDALONE
 		printf("genome reversed\n");
 #endif
+        if (se->pos > s_id || se->pos + length - 1 < e_id)
+            return 1;
+        
 		if (se->pos < e_id) { // then se->rd_map is the read (covers the begining) index when aligned to picked region
 #ifdef STANDALONE
 			printf("align over the homo\t\t");
@@ -740,6 +749,8 @@ void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_u
 #endif
 	free(remain);
 	free(read);
+    
+    return 0;
 }
 
 void output_data(FILE *fp, sam_entry *se, unsigned int id) {

@@ -58,5 +58,5 @@ void output_selected_reads(const char *f, sam **sds, merge_hash *mh);
 void output_data(FILE *fp, sam_entry *se, unsigned int id);
 //void match_pair(ref_info *rf_info, size_t my_refs);
 double sub_prob_given_q_with_encoding(data_t s, data_t r, int es, int er, data_t q, int logged, void *vptr);
-void adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_uni, size_t uni_aln_len, long *real_id);
+int adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_uni, size_t uni_aln_len, long *real_id);
 #endif /* pick_reads_h */

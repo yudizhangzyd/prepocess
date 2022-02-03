@@ -203,7 +203,7 @@ int make_alignment(options opt) {
 				sprintf(se->name_s, "%s%s", se->name, strand);
 				my_refs[j] = se->which_ref; // this my_refs index should be adjusted
 				found = 1;
-//				printf("%s\t", se->name_s);
+//				printf("%s %lu\t", se->name_s, se->pos);
 			}
 			rchar += strlen(se->ref_name) + 1;
 		}
@@ -236,10 +236,6 @@ int make_alignment(options opt) {
 #ifdef STANDALONE
 	printf("total picked reads %lu\n", total_read);
 #endif
-    
-    // output selected reads
-    if (opt.selected_fq)
-        output_selected_reads(opt.selected_fq, sds, mh);
     
 	// oh well, this is 0-based, so plus 1 to match with what the rest related code designed for
 	sam_entry *fse = &rf_info->ref_sam->se[my_refs[0]];
@@ -330,7 +326,7 @@ int make_alignment(options opt) {
 		
 		// only mapped to one reference, adjust the alignment to universal
 		if (me->nfiles != N_FILES) {
-//			me->exclude = 1;
+			me->exclude = 1;
 //			if (me->indices[0]) {
 //				se = &sds[0]->se[me->indices[0][0]]; // indices[0] represents A
 //				strand_genome = re->strand_A;
@@ -371,6 +367,7 @@ int make_alignment(options opt) {
                 warning("Read %u aligns twice in genome %s.\n",
                                       sds[j]->se[me->indices[j][0]].name_s, j);
 #endif
+                me->exclude = 1;
                 break;
             }
             
@@ -389,9 +386,13 @@ int make_alignment(options opt) {
 				real_id = real_id_B;
 			}
 #ifdef STANDALONE
-			printf("%s is ajusting\n", se->name_s);
+			printf("%s is adjusting\n", se->name_s);
 #endif
-			adjust_alignment(se, &fdr->reads[rf_id], strand_genome, id_uni, fdr->n_lengths[A_id], real_id);
+			int exclude = adjust_alignment(se, &fdr->reads[rf_id], strand_genome, id_uni, fdr->n_lengths[A_id], real_id);
+            if (exclude) {
+                me->exclude = 1;
+                break;
+            }
             // if the same, then ramdom sample
 			if (max_ll < se->ll_aln) {
 				max_ll = se->ll_aln;
@@ -406,6 +407,9 @@ int make_alignment(options opt) {
 #ifdef STANDALONE
 		printf("choose %d\n", max_id);
 #endif
+        if (me->exclude == 1)
+            continue;
+        
 		se = &sds[max_id]->se[me->indices[max_id][0]];
 //        if(se->gap_in) { // if there is gap on one alignment but not in another, then make up this info
 //            int left = 0;
@@ -434,6 +438,11 @@ int make_alignment(options opt) {
         }
 		n_read++;
 	}
+    
+    // output selected reads
+    if (opt.selected_fq)
+        output_selected_reads(opt.selected_fq, sds, mh);
+    
 #ifdef STANDALONE
 	printf("read: %d\n", n_read);
 #endif
