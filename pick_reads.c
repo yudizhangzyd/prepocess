@@ -369,6 +369,7 @@ void output_selected_reads(const char *f, sam **sds, merge_hash *mh) {
 	fclose(fpp);
 }
 
+// I think this can find the reads that aligned to homeologous regions
 // NOTE: NUCMER PRODUCES SECONDARY ALIGNMENTS, FILTER SECONDARY, need to consider the RC in reads
 // uni_len is the consumed length in genome
 // uni_aln_len is the alignment length
@@ -449,7 +450,8 @@ int adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_un
 #endif
 			len = s_id - se->pos; // length outside targeted genome
 			remain = malloc(uni_aln_len * sizeof(*remain));
-			int tmp = length - (s_id - se->pos);
+			int tmp = length - (s_id - se->pos); // e.g. 150-(117042504+1-117042366)
+            // this loop may not need to be computed every time
 			for (unsigned int i = 0; i < uni_aln_len; ++i) {
 				if (id_uni[i] <= tmp) { //uni alignment within the read's aligned region
 					if (id_uni[i] == -1)
@@ -609,9 +611,9 @@ int adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_un
 				}
 			remain = malloc((location) * sizeof(*remain));
 //			len = se->pos + length - s_id; //length outside targeted genome
-			for (unsigned int i = location; i <= 0; --i) {
+            for (unsigned int i = location; i-- > 0;) {
 				if (id_uni[i] == -1)
-					remain[gaps++] = location; // record the position that are gaps in uni
+					remain[gaps++] = i; // record the position that are gaps in uni
 			}
 			int consumed = 0;
 			new_len = s_id - (se->pos - 1) + gaps + 1;
@@ -646,23 +648,26 @@ int adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_un
 				}
 			remain = malloc((location) * sizeof(*remain));
 			long tmp = se->pos + length;
-			for (unsigned int i = location; i <= 0; --i) {
+            
+			for (unsigned int i = location; i-- > 0;) {
 				if(tmp > real_id[i]){ // if the consumed ref is within this
 					if (id_uni[i] == -1)
-						remain[gaps++] = location; }// record the position that are gaps in uni
+						remain[gaps++] = i; }// record the position that are gaps in uni
 				else {
 					break;
 				}
 			}
 			int consumed = 0;
 			new_len = length + gaps;
+            
+            location = location - new_len + 1 + 1;
 			se->rd_map = malloc(new_len * sizeof(*se->rd_map));
 //			printf("%d gaps meet in the uni genome, new aligned length %lu\n", gaps, length + gaps);
 			int flag = 0;
 			for (unsigned int i = 0; i < new_len; ++i) {
 				
 				for (unsigned int j = 0; j < gaps; ++j) {
-					if (i == remain[j]) {
+					if (i + location == remain[j]) {
 						flag = 1;
 						consumed++;
 						se->rd_map[i] = -1;
@@ -675,7 +680,6 @@ int adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_un
 				}
 				flag = 0;
 			}
-			location = location - new_len + 1 + 1;
 		}
 	}
 	
@@ -724,12 +728,15 @@ int adjust_alignment(sam_entry *se, data_t *ref, unsigned int strand, int *id_un
 #endif
 	// compute the alignment probability, if, ther is a gap in the read alignment but not in uni genome, then add a penalty
     // since here uni_aln is the alignment to the universal alignment, if reference and reads are the same, then both will contain gaps
+    // one edge case:
+    //A: catatcggcg
+    //B: ca--tcggcg but the aligned reads are cat, so creates reads have lower alignment likelihood
 	se->ll_aln = 0;
 	se->gap_in = 0;
 	for (size_t j = 0; j < new_len; ++j) {
-		if (se->uni_aln[j] == 4) {
-            if(ref[se->new_pos + j] != 0)
-                se->gap_in++;
+		if (se->uni_aln[j] == 4 || ref[se->new_pos + j] == 0) {
+//            if(ref[se->new_pos + j] != 0)
+            se->gap_in++;
 			continue;
 		}
 		double llt = sub_prob_given_q_with_encoding(ref[se->new_pos + j], se->uni_aln[j],

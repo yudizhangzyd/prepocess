@@ -237,7 +237,7 @@ int make_alignment(options opt) {
 	printf("total picked reads %lu\n", total_read);
 #endif
     
-	// oh well, this is 0-based, so plus 1 to match with what the rest related code designed for
+	// 0-based, so plus 1 to match with what the rest related code designed for
 	sam_entry *fse = &rf_info->ref_sam->se[my_refs[0]];
 	ref_entry *re = &rf_info->info[my_refs[0]];
 	re->start_B++;
@@ -254,9 +254,9 @@ int make_alignment(options opt) {
 #ifdef STANDALONE
 		printf("Genome B is reverse complemented\n");
 #endif
-		real_id_B[0] = re->end_B;
-		if (fse->cig->ashes[fse->cig->n_ashes - 1].type == CIGAR_SOFT_CLIP || fse->cig->ashes[fse->cig->n_ashes - 1].type == CIGAR_HARD_CLIP)
-			real_id_B[0] -= fse->cig->ashes[fse->cig->n_ashes - 1].len;
+		real_id_B[0] = re->end_B - 1;
+		if (fse->cig->ashes[0].type == CIGAR_SOFT_CLIP || fse->cig->ashes[0].type == CIGAR_HARD_CLIP)
+			real_id_B[0] -= fse->cig->ashes[0].len;
 	} else {
 		real_id_B[0] = re->start_B;
 		if (fse->cig->ashes[0].type == CIGAR_SOFT_CLIP || fse->cig->ashes[0].type == CIGAR_HARD_CLIP)
