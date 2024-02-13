@@ -62,6 +62,7 @@ int make_alignment(options opt) {
 	unsigned int A_id = 0, B_id = 0;
 	unsigned int rptr = 0, rptr_b = 0;
 	char *A_name = NULL;
+    char *B_name = NULL;
 	char *names = NULL;
 //		printf("%lu\n", strlen(opt.ref_names[0]));
 	//	strlen has to be the same when comparing
@@ -77,20 +78,24 @@ int make_alignment(options opt) {
 		for (i = 0; i < j; ++i)
 			names += fdr->name_lengths[i];
 		A_name = malloc((fdr->name_lengths[j] + 1) * sizeof(*A_name));
+        B_name = malloc((fdr->name_lengths[j + 1] + 1) * sizeof(*B_name));
 		//		for (i = 0; i < fdr->name_lengths[j]; ++i)
 		//			A_name[i] = names[i];
 		strncpy(A_name, names, fdr->name_lengths[j]);
 		A_name[fdr->name_lengths[j]] = '\0';
+        strncpy(B_name, names + fdr->name_lengths[j], fdr->name_lengths[j + 1]);
+        B_name[fdr->name_lengths[j + 1]] = '\0';
 //				printf("%lu %s\n", strlen(A_name), A_name);
-		if (!strcmp(opt.ref_names[0], A_name)) {
+		if (!strcmp(opt.ref_names[0], A_name) && !strcmp(opt.ref_names[1], B_name)) {
 			A_id = j;
-			B_id = j+1;
+            B_id = j+1; // note here, it is possible that A aligns to multiple B, better to match by B name
 			rptr_b = rptr + fdr->n_lengths[j];
 			break;
 		}
 		rptr += fdr->n_lengths[j];
 	}
     free(A_name);
+    free(B_name);
 	// make universal genome, gap from A as I(4), gap from B as J(5), mismatch mas M (6)
 	data_t to_xy[NUM_IUPAC_SYMBOLS] = {
 		0, XY_A, XY_C, 0, XY_G, 0, 0, 0, XY_T, 0, 0, 0, 0, 0, 0, 0
@@ -154,6 +159,7 @@ int make_alignment(options opt) {
 //    PRINT_VECTOR(id_A, fdr->n_lengths[A_id]);
 //    printf("B\n");
 //    PRINT_VECTOR(id_B, fdr->n_lengths[A_id]);
+    mmessage(INFO_MSG, NO_ERROR, "make_targets_info\n");
 	/* store information to the reference targeted sam file */
 	make_targets_info(opt_rf, &rf_info);
 	
@@ -167,6 +173,7 @@ int make_alignment(options opt) {
 		fclose(fp);
 	}
 	fp = NULL;
+    mmessage(INFO_MSG, NO_ERROR, "pickreads\n");
 	// pick the reads, more reads could be picked
 	pickreads(rf_info, &opt_rf, sds);
 	
@@ -219,7 +226,6 @@ int make_alignment(options opt) {
 #endif
         }
 			
-		
 		/* hash sam file to reference (use n_se since some references are repeated in the targted sam file) */
 		hash_sam(sds[j], &by_name[j], HASH_REFERENCE, my_refs[j], rf_info->ref_sam->n_se,
 			 opt.drop_unmapped, opt.drop_secondary,
@@ -342,9 +348,10 @@ int make_alignment(options opt) {
 //				//				uni_len = fdr->n_lengths[A_id] - gap_b;
 //				real_id = real_id_B;
 //			}
-//#ifdef STANDALONE
-//			printf("%s is ajusted\ndata\n", se->name_s);
-//#endif
+#ifdef STANDALONE
+            mmessage(WARNING_MSG, NO_ERROR, "Read %u aligns once.\n",
+                                      sds[j]->se[me->indices[j][0]].name_s);
+#endif
 //			adjust_alignment(se, &fdr->reads[rf_id], strand_genome, id_uni, fdr->n_lengths[A_id], real_id);
 //			// output the final alignment
 //			output_data(fp, se, n_read);
@@ -391,6 +398,10 @@ int make_alignment(options opt) {
 			int exclude = adjust_alignment(se, &fdr->reads[rf_id], strand_genome, id_uni, fdr->n_lengths[A_id], real_id);
             if (exclude) {
                 me->exclude = 1;
+#ifdef STANDALONE
+                mmessage(WARNING_MSG, NO_ERROR, "Read %u aligns wrong.\n",
+                         se->name_s);
+#endif
                 break;
             }
             // if the same, then ramdom sample
@@ -426,7 +437,7 @@ int make_alignment(options opt) {
 //            fprintf(stderr, "\n");
 //        }
 		// output the needed format
-		output_data(fp, se, n_read);
+		output_data(fp, se, n_read, &opt_rf);
         // output the sam file, split A and B
         if (opt.splited_fq[0]) {
             fprintf(splitted[max_id], "@%s\n", se->name);
